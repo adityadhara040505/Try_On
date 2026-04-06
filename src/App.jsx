@@ -62,7 +62,10 @@ function App() {
     setStatusMsg('Connecting to AI Engine...');
 
     try {
-      const app = await Client.connect("yisol/IDM-VTON");
+      // Connect with status & data events enabled
+      const app = await Client.connect("yisol/IDM-VTON", {
+        events: ["status", "data"]
+      });
 
       setStatusMsg('Preparing images...');
 
@@ -82,8 +85,8 @@ function App() {
 
       setStatusMsg('Starting generation...');
 
-      // Submit job and listen for status updates
-      const job = app.submit("/tryon", [
+      // Submit job
+      const submission = app.submit("/tryon", [
         {
           "background": hBlob,
           "layers": [],
@@ -97,36 +100,37 @@ function App() {
         42,   // seed
       ]);
 
-      job.on("status", (s) => {
-        if (s.stage === 'pending') {
-          setStatusMsg(`Queued at position ${s.position || '...'}`);
-        } else if (s.stage === 'processing') {
-          setStatusMsg(`AI is processing your look... (${s.progress || 'calculating...'})`);
-        } else if (s.stage === 'error') {
-          setError("The AI model encountered an error. Please try again.");
+      // Iterate through events (status and data)
+      for await (const message of submission) {
+        if (message.type === "status") {
+          const s = message;
+          if (s.stage === 'pending') {
+            setStatusMsg(`Queued at position ${s.position ?? '...'}`);
+          } else if (s.stage === 'generating') {
+            setStatusMsg(`AI is processing your look... (${s.progress ? (s.progress * 100).toFixed(0) + '%' : 'calculating...'})`);
+          } else if (s.stage === 'error') {
+            throw new Error("The AI model encountered a server-side error. Please try again.");
+          } else if (s.stage === 'complete') {
+            setStatusMsg('Success!');
+          }
+        } else if (message.type === "data") {
+          const predictResult = message;
+          if (predictResult && predictResult.data && predictResult.data[0]) {
+            const resData = predictResult.data[0];
+            const resUrl = resData.url || resData;
+            setResult(resUrl);
+
+            // Add to history
+            const newLook = {
+              id: Date.now(),
+              url: resUrl,
+              garment: garmentPreview,
+              description: description,
+              timestamp: new Date().toLocaleString()
+            };
+            setHistory(prev => [newLook, ...prev].slice(0, 20));
+          }
         }
-      });
-
-      const predictResult = await job;
-
-      if (predictResult && predictResult.data && predictResult.data[0]) {
-        const resData = predictResult.data[0];
-        const resUrl = resData.url || resData;
-        setResult(resUrl);
-
-        // Add to history
-        const newLook = {
-          id: Date.now(),
-          url: resUrl,
-          garment: garmentPreview,
-          description: description,
-          timestamp: new Date().toLocaleString()
-        };
-        setHistory(prev => [newLook, ...prev].slice(0, 20)); // Keep last 20
-
-        setStatusMsg('Success!');
-      } else {
-        throw new Error("No output received from the AI model.");
       }
 
     } catch (err) {
