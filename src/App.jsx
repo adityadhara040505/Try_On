@@ -24,8 +24,8 @@ const urlToBlob = async (url) => {
 function App() {
   const [humanFile, setHumanFile] = useState(null);
   const [garmentFile, setGarmentFile] = useState(null);
-  const [humanPreview, setHumanPreview] = useState("https://segmind-sd-models.s3.amazonaws.com/display_images/idm-ip.png");
-  const [garmentPreview, setGarmentPreview] = useState("https://segmind-sd-models.s3.amazonaws.com/display_images/idm-viton-dress.png");
+  const [humanPreview, setHumanPreview] = useState("/demo-model.png");
+  const [garmentPreview, setGarmentPreview] = useState("/demo-dress.png");
   const [description, setDescription] = useState("Green colour semi Formal Blazer");
   const [category, setCategory] = useState("upper_body");
   const [result, setResult] = useState(null);
